@@ -1,0 +1,20 @@
+{
+  "functions": {
+    "app/api/clay-webhook/route.js": {
+      "includeFiles": "**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/clay-webhook",
+      "destination": "/api/clay-webhook",
+      "has": [
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "application/json"
+        }
+      ]
+    }
+  ]
+}
