@@ -1,14 +1,11 @@
-export const runtime = 'edge'; // Optional: Use edge runtime for better performance
-
-// This config disables authentication for this endpoint
-export const config = {
-  api: {
-    bodyParser: true,
-  },
-};
+// Remove edge runtime - it doesn't support global variables
+// export const runtime = 'edge'; 
 
 export async function POST(req) {
   try {
+    // Initialize job store if it doesn't exist
+    global.jobStore = global.jobStore || new Map();
+    
     // Log raw request body for debugging
     const rawBody = await req.text();
     console.log('Raw body received:', rawBody);
@@ -37,9 +34,6 @@ export async function POST(req) {
         received: Object.keys(data)
       }, { status: 400 });
     }
-
-    // Initialize job store if it doesn't exist
-    global.jobStore = global.jobStore || new Map();
     
     // Get job from store
     const job = global.jobStore.get(job_id);
@@ -47,35 +41,53 @@ export async function POST(req) {
       console.log('Job not found. Available jobs:', Array.from(global.jobStore.keys()));
       return Response.json({ 
         success: false, 
-        error: 'Job not found',
+        error: 'Job not found - it may have expired. Please submit a new request.',
         jobId: job_id,
         availableJobs: Array.from(global.jobStore.keys())
       }, { status: 404 });
     }
 
-    // Parse results if they're strings
+    // Parse results if they're strings with markdown
     let parsedResearch = research_output;
     let parsedGtm = gtm_plan;
     let parsedCampaigns = campaigns;
     
-    // Try to parse if they're strings with markdown
-    if (typeof research_output === 'string' && research_output.includes('```json')) {
-      try {
-        const jsonMatch = research_output.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch) {
-          parsedResearch = JSON.parse(jsonMatch[1]);
+    // Helper function to extract JSON from markdown
+    const extractJSON = (input) => {
+      if (typeof input === 'string') {
+        // Check if it has markdown code blocks
+        if (input.includes('```json')) {
+          const match = input.match(/```json\s*([\s\S]*?)\s*```/);
+          if (match && match[1]) {
+            try {
+              return JSON.parse(match[1]);
+            } catch (e) {
+              console.error('Failed to parse JSON from markdown:', e);
+            }
+          }
         }
-      } catch (e) {
-        console.error('Failed to parse research_output:', e);
+        // Try to parse as-is if it's valid JSON
+        try {
+          return JSON.parse(input);
+        } catch (e) {
+          // If it's not valid JSON, return as-is
+          return input;
+        }
       }
-    }
+      return input;
+    };
+    
+    // Parse each output
+    parsedResearch = extractJSON(research_output);
+    parsedGtm = extractJSON(gtm_plan);
+    parsedCampaigns = extractJSON(campaigns);
     
     // Update job with results
     job.status = 'completed';
     job.completedAt = new Date();
     job.results = {
       research: parsedResearch,
-      gtm: parsedGtm,
+      gtm: parsedGtm,  
       campaigns: parsedCampaigns
     };
     
@@ -95,7 +107,8 @@ export async function POST(req) {
     return Response.json({ 
       success: false, 
       error: 'Failed to process results',
-      details: error.message
+      details: error.message,
+      stack: error.stack
     }, { status: 500 });
   }
 }
