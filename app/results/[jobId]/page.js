@@ -127,7 +127,22 @@ export default function ResultsPage() {
     );
   }
 
-  const { research, gtm, campaigns } = data.results;
+  const { research, gtm, campaigns } = data.results || {};
+
+  // Handle missing data gracefully
+  if (!research || !gtm || !campaigns) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-yellow-400 text-xl mb-4">Partial data received. Some sections may be missing.</p>
+          <pre className="text-white text-left bg-black/50 p-4 rounded">
+            {JSON.stringify(data.results, null, 2)}
+          </pre>
+          <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300">Try again</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
