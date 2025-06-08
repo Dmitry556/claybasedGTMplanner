@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -10,12 +12,16 @@ export async function GET(req) {
       }, { status: 400 });
     }
 
+    // Initialize job store if it doesn't exist
+    global.jobStore = global.jobStore || new Map();
+    
     const job = global.jobStore.get(jobId);
     
     if (!job) {
       return Response.json({ 
         success: false, 
-        error: 'Job not found' 
+        error: 'Job not found - please submit a new request',
+        availableJobs: Array.from(global.jobStore.keys()).length
       }, { status: 404 });
     }
 
@@ -32,7 +38,8 @@ export async function GET(req) {
     console.error('Error checking results:', error);
     return Response.json({ 
       success: false, 
-      error: 'Failed to check status' 
+      error: 'Failed to check status',
+      details: error.message
     }, { status: 500 });
   }
 }
