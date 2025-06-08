@@ -1,28 +1,7 @@
-// Remove edge runtime - it doesn't support global variables
-// export const runtime = 'edge'; 
-
 export async function POST(req) {
   try {
-    // Initialize job store if it doesn't exist
-    global.jobStore = global.jobStore || new Map();
-    
-    // Log raw request body for debugging
-    const rawBody = await req.text();
-    console.log('Raw body received:', rawBody);
-    
-    let data;
-    try {
-      data = JSON.parse(rawBody);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      return Response.json({ 
-        success: false, 
-        error: 'Invalid JSON in request body',
-        details: parseError.message
-      }, { status: 400 });
-    }
-    
-    console.log('Parsed data:', JSON.stringify(data, null, 2));
+    const data = await req.json();
+    console.log('Received from Clay:', JSON.stringify(data, null, 2));
     
     // Extract job ID and results
     const { job_id, research_output, gtm_plan, campaigns } = data;
@@ -30,32 +9,16 @@ export async function POST(req) {
     if (!job_id) {
       return Response.json({ 
         success: false, 
-        error: 'No job ID provided',
-        received: Object.keys(data)
+        error: 'No job ID provided' 
       }, { status: 400 });
     }
     
-    // Get job from store
-    const job = global.jobStore.get(job_id);
-    if (!job) {
-      console.log('Job not found. Available jobs:', Array.from(global.jobStore.keys()));
-      return Response.json({ 
-        success: false, 
-        error: 'Job not found - it may have expired. Please submit a new request.',
-        jobId: job_id,
-        availableJobs: Array.from(global.jobStore.keys())
-      }, { status: 404 });
-    }
-
-    // Parse results if they're strings with markdown
-    let parsedResearch = research_output;
-    let parsedGtm = gtm_plan;
-    let parsedCampaigns = campaigns;
+    // Initialize job store
+    global.jobStore = global.jobStore || new Map();
     
     // Helper function to extract JSON from markdown
     const extractJSON = (input) => {
       if (typeof input === 'string') {
-        // Check if it has markdown code blocks
         if (input.includes('```json')) {
           const match = input.match(/```json\s*([\s\S]*?)\s*```/);
           if (match && match[1]) {
@@ -63,14 +26,13 @@ export async function POST(req) {
               return JSON.parse(match[1]);
             } catch (e) {
               console.error('Failed to parse JSON from markdown:', e);
+              return input;
             }
           }
         }
-        // Try to parse as-is if it's valid JSON
         try {
           return JSON.parse(input);
         } catch (e) {
-          // If it's not valid JSON, return as-is
           return input;
         }
       }
@@ -78,27 +40,43 @@ export async function POST(req) {
     };
     
     // Parse each output
-    parsedResearch = extractJSON(research_output);
-    parsedGtm = extractJSON(gtm_plan);
-    parsedCampaigns = extractJSON(campaigns);
+    const parsedResults = {
+      research: research_output ? extractJSON(research_output) : {},
+      gtm: extractJSON(gtm_plan) || {},
+      campaigns: extractJSON(campaigns) || {}
+    };
+    
+    // Check if job exists
+    let job = global.jobStore.get(job_id);
+    
+    if (!job) {
+      console.log('Job not found, creating new one for:', job_id);
+      // Create a new job entry if it doesn't exist
+      job = {
+        email: 'from-clay@webhook.com',
+        website: 'via-clay',
+        positioning: 'unknown',
+        status: 'processing',
+        createdAt: new Date()
+      };
+      global.jobStore.set(job_id, job);
+    }
     
     // Update job with results
     job.status = 'completed';
     job.completedAt = new Date();
-    job.results = {
-      research: parsedResearch,
-      gtm: parsedGtm,  
-      campaigns: parsedCampaigns
-    };
+    job.results = parsedResults;
     
     global.jobStore.set(job_id, job);
-
+    
     console.log('Successfully updated job:', job_id);
-
+    console.log('Job now has status:', job.status);
+    
     return Response.json({ 
       success: true,
-      message: 'Results received',
-      jobId: job_id
+      message: 'Results received and job updated',
+      jobId: job_id,
+      status: job.status
     });
 
   } catch (error) {
@@ -107,8 +85,7 @@ export async function POST(req) {
     return Response.json({ 
       success: false, 
       error: 'Failed to process results',
-      details: error.message,
-      stack: error.stack
+      details: error.message
     }, { status: 500 });
   }
 }
