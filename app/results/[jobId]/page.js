@@ -127,22 +127,27 @@ export default function ResultsPage() {
     );
   }
 
-  const { research, gtm, campaigns } = data.results || {};
+  // Extract data safely
+  const research = data.results?.research || {};
+  const gtm = data.results?.gtm || {};
+  const campaigns = data.results?.campaigns || {};
 
-  // Handle missing data gracefully
-  if (!research || !gtm || !campaigns) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-yellow-400 text-xl mb-4">Partial data received. Some sections may be missing.</p>
-          <pre className="text-white text-left bg-black/50 p-4 rounded">
-            {JSON.stringify(data.results, null, 2)}
-          </pre>
-          <a href="/" className="inline-block mt-4 text-blue-400 hover:text-blue-300">Try again</a>
-        </div>
-      </div>
-    );
-  }
+  // Handle different GTM data structures
+  const gtmData = {
+    positioning_assessment: gtm?.positioning_assessment || gtm?.positioning_diagnosis?.current_state || 'Not available',
+    recommended_positioning: gtm?.recommended_positioning || gtm?.positioning_diagnosis?.recommended_positioning,
+    swot: {
+      strengths: gtm?.swot?.strengths || gtm?.operational_swot?.strengths || [],
+      weaknesses: gtm?.swot?.weaknesses || gtm?.operational_swot?.weaknesses || [],
+      opportunities: gtm?.swot?.opportunities || gtm?.operational_swot?.opportunities || [],
+      threats: gtm?.swot?.threats || gtm?.operational_swot?.threats || []
+    },
+    market_sizing: gtm?.market_sizing || gtm?.serviceable_addressable_market || {},
+    ideal_customer_profile: gtm?.ideal_customer_profile || gtm?.ideal_customer_profile_operational || '',
+    personas: gtm?.personas || gtm?.buyer_personas || [],
+    segments: gtm?.segments || gtm?.targetable_segments || [],
+    anti_patterns: gtm?.anti_patterns || []
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
@@ -205,7 +210,42 @@ export default function ResultsPage() {
                 <div className="relative">
                   <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
                   <div className="absolute inset-0 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
+                  {/* Anti-patterns */}
+              {gtm?.anti_patterns && gtm.anti_patterns.length > 0 && (
+                <div className="glass-card rounded-2xl p-8">
+                  <h2 className="text-2xl font-bold text-white mb-6">Anti-Patterns (Who NOT to Target)</h2>
+                  <div className="space-y-4">
+                    {gtm.anti_patterns.map((pattern, i) => (
+                      <div key={i} className="bg-red-500/10 border border-red-400/30 rounded-xl p-5">
+                        <div className="flex items-start space-x-3">
+                          <svg className="w-6 h-6 text-red-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-white font-medium mb-1">{pattern.characteristic}</p>
+                            <p className="text-gray-300 text-sm">{pattern.reason}</p>
+                            {/* GTM Recommendations */}
+                {gtm?.gtm_recommendations && (
+                  <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-400/30 rounded-xl p-6">
+                    <h3 className="text-lg font-bold text-white mb-4">GTM Recommendations</h3>
+                    <ol className="space-y-3">
+                      {gtm.gtm_recommendations.map((rec, i) => (
+                        <li key={i} className="flex items-start">
+                          <span className="text-indigo-400 font-bold mr-3">{i + 1}.</span>
+                          <span className="text-white">{rec}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
                 <div>
                   <h1 className="text-xl font-semibold text-white">GTM Strategy Complete</h1>
                   <p className="text-sm text-gray-300">Full market analysis and campaign plan ready</p>
@@ -306,12 +346,24 @@ export default function ResultsPage() {
                 <div className="space-y-4">
                   <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-6">
                     <p className="text-sm text-blue-400 uppercase tracking-wide font-bold mb-2">Current State</p>
-                    <p className="text-white text-lg">{gtm?.positioning_assessment || 'Not available'}</p>
+                    <p className="text-white text-lg">
+                      {gtm?.positioning_diagnosis?.current_state || 
+                       gtm?.positioning_assessment || 
+                       gtmData.positioning_assessment}
+                    </p>
+                    {gtm?.positioning_diagnosis?.evidence_for_assessment && (
+                      <div className="mt-4 pt-4 border-t border-blue-400/20">
+                        <p className="text-sm text-blue-300 mb-2">Evidence:</p>
+                        <p className="text-gray-300 text-sm">{gtm.positioning_diagnosis.evidence_for_assessment}</p>
+                      </div>
+                    )}
                   </div>
-                  {gtm?.recommended_positioning && (
+                  {(gtm?.positioning_diagnosis?.recommended_positioning || gtmData.recommended_positioning) && (
                     <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-6">
                       <p className="text-sm text-green-400 uppercase tracking-wide font-bold mb-2">Recommended Positioning</p>
-                      <p className="text-white text-xl font-medium">{gtm.recommended_positioning}</p>
+                      <p className="text-white text-xl font-medium">
+                        {gtm?.positioning_diagnosis?.recommended_positioning || gtmData.recommended_positioning}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -378,19 +430,36 @@ export default function ResultsPage() {
                 
                 {/* TAM/SAM/SOM */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-400/30 rounded-xl p-6 text-center">
-                    <p className="text-sm text-blue-400 uppercase tracking-wide font-bold mb-2">Total Addressable Market</p>
-                    <p className="text-3xl font-bold text-white">{gtm.market_sizing.tam}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-6 text-center">
-                    <p className="text-sm text-purple-400 uppercase tracking-wide font-bold mb-2">Serviceable Addressable Market</p>
-                    <p className="text-3xl font-bold text-white">{gtm.market_sizing.sam}</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-500/20 to-teal-500/20 border border-green-400/30 rounded-xl p-6 text-center">
-                    <p className="text-sm text-green-400 uppercase tracking-wide font-bold mb-2">Serviceable Obtainable Market</p>
-                    <p className="text-3xl font-bold text-white">{gtm.market_sizing.som}</p>
-                  </div>
-                </div>
+                  {gtm?.serviceable_addressable_market ? (
+                    // Clay's format
+                    <div className="md:col-span-3 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-400/30 rounded-xl p-6">
+                      <p className="text-sm text-blue-400 uppercase tracking-wide font-bold mb-3">Market Opportunity Analysis</p>
+                      <div className="text-white space-y-2">
+                        {Object.entries(gtm.serviceable_addressable_market).map(([key, value]) => (
+                          <div key={key} className="flex justify-between items-center">
+                            <span className="text-gray-300 capitalize">{key.replace(/_/g, ' ')}:</span>
+                            <span className="font-bold text-xl">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    // Original format
+                    <>
+                      <div className="bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-400/30 rounded-xl p-6 text-center">
+                        <p className="text-sm text-blue-400 uppercase tracking-wide font-bold mb-2">Total Addressable Market</p>
+                        <p className="text-3xl font-bold text-white">{gtmData.market_sizing.tam || 'N/A'}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-6 text-center">
+                        <p className="text-sm text-purple-400 uppercase tracking-wide font-bold mb-2">Serviceable Addressable Market</p>
+                        <p className="text-3xl font-bold text-white">{gtmData.market_sizing.sam || 'N/A'}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-500/20 to-teal-500/20 border border-green-400/30 rounded-xl p-6 text-center">
+                        <p className="text-sm text-green-400 uppercase tracking-wide font-bold mb-2">Serviceable Obtainable Market</p>
+                        <p className="text-3xl font-bold text-white">{gtmData.market_sizing.som || 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
 
                 {/* Competitive Positioning */}
                 {gtm.competitive_positioning && (
@@ -406,11 +475,16 @@ export default function ResultsPage() {
           {/* Targeting Tab */}
           {activeTab === 'targeting' && (
             <div className="animate-fade-in space-y-6">
-              {/* ICP */}
+              {/* Ideal Customer Profile */}
               <div className="glass-card rounded-2xl p-8">
                 <h2 className="text-2xl font-bold text-white mb-6">Ideal Customer Profile</h2>
                 <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-6">
-                  <p className="text-white leading-relaxed">{gtm.ideal_customer_profile}</p>
+                  <p className="text-white leading-relaxed">
+                    {gtmData.ideal_customer_profile || 
+                     gtm?.ideal_customer_profile || 
+                     gtm?.ideal_customer_profile_operational ||
+                     'Ideal customer profile information not available'}
+                  </p>
                 </div>
               </div>
 
@@ -418,22 +492,40 @@ export default function ResultsPage() {
               <div className="glass-card rounded-2xl p-8">
                 <h2 className="text-2xl font-bold text-white mb-6">Buyer Personas</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {gtm.personas.map((persona, i) => (
+                  {(gtmData.personas.length > 0 ? gtmData.personas : gtm?.buyer_personas_by_operational_reality || []).map((persona, i) => (
                     <div key={i} className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl p-6">
                       <h3 className="text-lg font-bold text-white mb-4">{persona.title}</h3>
                       <div className="space-y-3 text-sm">
-                        <div>
-                          <p className="text-gray-400 mb-1">Daily Reality:</p>
-                          <p className="text-gray-200">{persona.daily_reality}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 mb-1">Measured On:</p>
-                          <p className="text-gray-200">{persona.measured_on}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 mb-1">Current Pain:</p>
-                          <p className="text-gray-200">{persona.current_pain}</p>
-                        </div>
+                        {persona.daily_reality && (
+                          <div>
+                            <p className="text-gray-400 mb-1">Daily Reality:</p>
+                            <p className="text-gray-200">{persona.daily_reality}</p>
+                          </div>
+                        )}
+                        {persona.manages && (
+                          <div>
+                            <p className="text-gray-400 mb-1">Manages:</p>
+                            <p className="text-gray-200">{persona.manages}</p>
+                          </div>
+                        )}
+                        {persona.measured_on && (
+                          <div>
+                            <p className="text-gray-400 mb-1">Measured On:</p>
+                            <p className="text-gray-200">{persona.measured_on}</p>
+                          </div>
+                        )}
+                        {persona.current_pain && (
+                          <div>
+                            <p className="text-gray-400 mb-1">Current Pain:</p>
+                            <p className="text-gray-200">{persona.current_pain}</p>
+                          </div>
+                        )}
+                        {persona.dream_state && (
+                          <div>
+                            <p className="text-gray-400 mb-1">Dream State:</p>
+                            <p className="text-gray-200">{persona.dream_state}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -444,22 +536,28 @@ export default function ResultsPage() {
               <div className="glass-card rounded-2xl p-8">
                 <h2 className="text-2xl font-bold text-white mb-6">Target Segments</h2>
                 <div className="space-y-6">
-                  {gtm.segments.map((segment, i) => (
+                  {(gtmData.segments.length > 0 ? gtmData.segments : gtm?.targetable_segments || []).map((segment, i) => (
                     <div key={i} className="bg-gray-800/50 rounded-xl p-6">
                       <h3 className="text-xl font-bold text-blue-400 mb-3">{segment.name}</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-400 mb-1">Target:</p>
-                          <p className="text-white">{segment.target}</p>
+                          <p className="text-white">{segment.target || segment.who}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400 mb-1">Market Size:</p>
-                          <p className="text-white font-bold">{segment.market_size}</p>
+                          <p className="text-white font-bold">{segment.market_size || segment.segment_size || 'Not specified'}</p>
                         </div>
                         <div className="md:col-span-2">
                           <p className="text-sm text-gray-400 mb-1">Pain Created:</p>
-                          <p className="text-white">{segment.pain_created}</p>
+                          <p className="text-white">{segment.pain_created || segment.why_this_creates_pain || 'Not specified'}</p>
                         </div>
+                        {segment.how_to_find_them && (
+                          <div className="md:col-span-2">
+                            <p className="text-sm text-gray-400 mb-1">How to Find Them:</p>
+                            <p className="text-white">{segment.how_to_find_them}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
