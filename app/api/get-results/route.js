@@ -26,6 +26,13 @@ export async function GET(req) {
       }, { status: 202 });
     }
 
+    // Ensure all data is properly structured
+    const results = {
+      research: job.results?.research || {},
+      gtm: job.results?.gtm || {},
+      campaigns: job.results?.campaigns || {}
+    };
+
     return Response.json({
       success: true,
       data: {
@@ -33,7 +40,7 @@ export async function GET(req) {
         email: job.email,
         website: job.website,
         positioning: job.positioning,
-        results: job.results
+        results: results
       }
     });
 
