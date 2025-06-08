@@ -306,9 +306,9 @@ export default function ResultsPage() {
                 <div className="space-y-4">
                   <div className="bg-blue-500/10 border border-blue-400/30 rounded-xl p-6">
                     <p className="text-sm text-blue-400 uppercase tracking-wide font-bold mb-2">Current State</p>
-                    <p className="text-white text-lg">{gtm.positioning_assessment}</p>
+                    <p className="text-white text-lg">{gtm?.positioning_assessment || 'Not available'}</p>
                   </div>
-                  {gtm.recommended_positioning && (
+                  {gtm?.recommended_positioning && (
                     <div className="bg-green-500/10 border border-green-400/30 rounded-xl p-6">
                       <p className="text-sm text-green-400 uppercase tracking-wide font-bold mb-2">Recommended Positioning</p>
                       <p className="text-white text-xl font-medium">{gtm.recommended_positioning}</p>
